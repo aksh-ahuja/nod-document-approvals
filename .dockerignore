@@ -1,0 +1,11 @@
+.git
+.env
+.venv
+.local
+**/node_modules
+**/dist
+**/__pycache__
+**/*.sqlite3
+**/private_uploads
+**/test-results
+**/playwright-report

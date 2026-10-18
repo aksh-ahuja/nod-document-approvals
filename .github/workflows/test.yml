@@ -1,0 +1,53 @@
+name: Nod checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: nod
+          POSTGRES_USER: nod
+          POSTGRES_PASSWORD: nod-test-only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U nod"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NOD_DEBUG: 'true'
+      NOD_DB_ENGINE: postgresql
+      NOD_DB_NAME: nod
+      NOD_DB_USER: nod
+      NOD_DB_PASSWORD: nod-test-only
+      NOD_DB_HOST: 127.0.0.1
+      NOD_DB_PORT: '5432'
+      NOD_DB_SSLMODE: disable
+      NOD_EMAIL_PROVIDER: console
+      NOD_STORAGE_PROVIDER: local
+      NOD_TEST_DOCX_PREVIEW: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m venv .venv
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-writer fonts-dejavu-core
+      - run: .venv/bin/pip install -r backend/requirements-dev.txt
+      - run: make format-check
+      - run: npm --prefix frontend ci
+      - run: make test
+      - run: .venv/bin/python backend/manage.py spectacular --file /tmp/nod-openapi.yaml --validate --fail-on-warn
+      - run: .venv/bin/python backend/manage.py makemigrations --check --dry-run
+      - run: cd frontend && npx playwright install --with-deps chromium
+      - run: npm --prefix frontend run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: nod-browser-failures
+          path: frontend/test-results/

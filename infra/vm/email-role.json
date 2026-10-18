@@ -1,0 +1,15 @@
+{
+  "Name": "Nod ACS Email Sender",
+  "IsCustom": true,
+  "Description": "Permissions required by ACS Email managed-identity authentication; assign only on the selected Communication Services resource.",
+  "Actions": [
+    "Microsoft.Communication/CommunicationServices/Read",
+    "Microsoft.Communication/CommunicationServices/Write"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/9443ff56-75b2-4b45-8a98-ee7a0937dc49/resourceGroups/GROWLEE-PROD-RG"
+  ]
+}

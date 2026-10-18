@@ -1,0 +1,33 @@
+from enum import Enum
+
+STATUS_MAX_LENGTH = 16
+HASH_MAX_LENGTH = 64
+FILE_MAX_BYTES = 10 * 1024 * 1024
+DOCX_MAX_EXPANDED_BYTES = 50 * 1024 * 1024
+DOCX_MAX_ENTRIES = 2000
+UPLOAD_URL_TTL = 300
+UPLOAD_RETENTION_SECONDS = 86400
+UPLOAD_HOURLY_LIMIT = 30
+UPLOAD_ACTIVE_LIMIT = 10
+UPLOAD_LEASE_SECONDS = 300
+UPLOAD_MAX_ATTEMPTS = 3
+UPLOAD_RETRY_SECONDS = 10
+UPLOAD_POLL_SECONDS = 2
+UPLOAD_CLEANUP_SECONDS = 60
+UPLOAD_BATCH_SIZE = 100
+UPLOAD_ETAG_MAX_LENGTH = 256
+UPLOAD_ERROR_MAX_LENGTH = 300
+UPLOAD_TOKEN_SALT = 'nod-upload'
+
+
+class UploadStatus(str, Enum):
+    PENDING = 'pending'
+    VALIDATING = 'validating'
+    READY = 'ready'
+    REJECTED = 'rejected'
+    ATTACHED = 'attached'
+    EXPIRED = 'expired'
+
+    @classmethod
+    def choices(cls):
+        return [(member.value, member.value.title()) for member in cls]

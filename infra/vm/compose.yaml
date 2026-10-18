@@ -1,0 +1,78 @@
+name: nod-production
+
+x-runtime: &runtime
+  image: nod-api:${NOD_RELEASE:?Set NOD_RELEASE}
+  env_file: /opt/nod/shared/production.env
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: '3'}
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: /opt/nod/shared/database.env
+    volumes:
+      - nod-postgres:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/10-nod.sh:ro
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U nod_admin -d nod']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  api:
+    <<: *runtime
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    ports: ['127.0.0.1:18001:8000']
+    mem_limit: 768m
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://localhost:8000/api/ready/")']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  worker:
+    <<: *runtime
+    command: [python, manage.py, process_uploads]
+    mem_limit: 768m
+    depends_on:
+      api: {condition: service_healthy}
+  web:
+    image: nod-web:${NOD_RELEASE:?Set NOD_RELEASE}
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    ports: ['127.0.0.1:18080:8080']
+    restart: unless-stopped
+    mem_limit: 128m
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+
+volumes:
+  nod-postgres:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.80.0/24
+          gateway: 172.29.80.1

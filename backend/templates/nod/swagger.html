@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nod API · Swagger</title>
+  <link rel="icon" href="{% url 'nod-swagger-asset' 'favicon-32x32.png' %}">
+  <link rel="stylesheet" href="{% url 'nod-swagger-asset' 'swagger-ui.css' %}">
+  <style>
+    body { margin: 0; background: #fafafa; }
+    .guide { max-width: 1380px; margin: 24px auto 0; padding: 0 24px; font: 16px/1.6 system-ui, sans-serif; color: #263238; }
+    .guide h1 { margin-bottom: 8px; }
+    .guide a { color: #126449; }
+    .guide code { background: #e9eeeb; padding: 2px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header class="guide">
+    <h1>Nod API playground</h1>
+    <p>Open an endpoint, select <strong>Try it out</strong>, edit the request, then <strong>Execute</strong>.</p>
+    <ol>
+      <li>Use <code>auth/login/</code> with your account, or register and verify your email first.</li>
+      <li>Run <code>reviewers/list/</code>, copy a reviewer's ID, and use it in <code>submissions/create/</code>. Generate a fresh <code>client_request_id</code> UUID for each new submission.</li>
+      <li>Log out, log in as the assigned reviewer, and use <code>submissions/decision/{id}/</code> to approve or reject.</li>
+    </ol>
+    <p>Session cookies and CSRF are handled automatically, including after login. The <strong>Authorize</strong> dialog is not needed. Requests change real data on the current server.</p>
+    <p><a href="{% url 'nod-openapi' %}">Download OpenAPI JSON</a> · <a href="/">Open Nod</a></p>
+  </header>
+  <div id="swagger-ui"></div>
+  <script src="{% url 'nod-swagger-asset' 'swagger-ui-bundle.js' %}"></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      url: "{% url 'nod-openapi' %}",
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis],
+      layout: 'BaseLayout',
+      deepLinking: true,
+      displayRequestDuration: true,
+      persistAuthorization: false,
+      validatorUrl: null,
+      requestInterceptor: (request) => {
+        const target = new URL(request.url, window.location.href);
+        if (target.origin === window.location.origin) {
+          request.credentials = 'same-origin';
+          if (!['GET', 'HEAD', 'OPTIONS'].includes((request.method || 'GET').toUpperCase())) {
+            const cookie = document.cookie.split(';').map(value => value.trim())
+              .find(value => value.startsWith('csrftoken='));
+            if (cookie) request.headers['X-CSRFToken'] = decodeURIComponent(cookie.slice('csrftoken='.length));
+          }
+        }
+        return request;
+      }
+    });
+  </script>
+</body>
+</html>

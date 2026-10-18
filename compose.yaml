@@ -1,0 +1,86 @@
+name: nod
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nod
+      POSTGRES_USER: nod
+      POSTGRES_PASSWORD: nod-local-only
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - nod-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nod -d nod']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: &nod-environment
+      NOD_DEBUG: 'true'
+      NOD_SECRET_KEY: local-compose-nod-only-change-before-deployment
+      NOD_ALLOWED_HOSTS: localhost,127.0.0.1,api
+      NOD_CSRF_TRUSTED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      NOD_TRUSTED_PROXY_IPS: '172.29.80.10'
+      NOD_DB_ENGINE: postgresql
+      NOD_DB_NAME: nod
+      NOD_DB_USER: nod
+      NOD_DB_PASSWORD: nod-local-only
+      NOD_DB_HOST: db
+      NOD_DB_PORT: '5432'
+      NOD_DB_SSLMODE: disable
+      NOD_EMAIL_PROVIDER: console
+      NOD_ENABLE_DEMO: 'true'
+      NOD_STORAGE_PROVIDER: local
+    volumes:
+      - nod-documents:/app/private_uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'python', '-c', 'import urllib.request; urllib.request.urlopen("http://localhost:8000/api/ready/")']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    command:
+      [
+        'sh',
+        '-c',
+        'python manage.py migrate --noinput && python manage.py seed_demo && gunicorn nod_central_service.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 4 --timeout 60 --access-logfile -',
+      ]
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *nod-environment
+    volumes:
+      - nod-documents:/app/private_uploads
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ['python', 'manage.py', 'process_uploads']
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      NOD_INGRESS_MODE: direct
+    networks:
+      default:
+        ipv4_address: 172.29.80.10
+    depends_on:
+      - api
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.80.0/24
+volumes:
+  nod-postgres:
+  nod-documents:
